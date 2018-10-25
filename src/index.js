@@ -1,94 +1,52 @@
 import d3 from "d3";
 
-var doctype = '<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">';
+import { prefix, doctype } from "./constants";
+import { getFontFamily, traverseNodes, getContentDocuments } from "./helpers";
 
 window.URL = (window.URL || window.webkitURL);
 
 const { body } = document;
 
-const prefix = {
-    xmlns: "http://www.w3.org/2000/xmlns/",
-    xlink: "http://www.w3.org/1999/xlink",
-    svg: "http://www.w3.org/2000/svg"
+const _cleanup = () => {
+    const crowbarElements = document.querySelectorAll(".svg-crowbar");
+
+    [].forEach.call(crowbarElements, el => el.parentNode.removeChild(el));
 };
 
-function _cleanup() {
-    var crowbarElements = document.querySelectorAll(".svg-crowbar");
+const _setInlineStyles = (svg, emptySvgDeclarationComputed) => {
+    const _explicitlySetStyle = (element) => {
+        const CSSStyleDeclarationComputed = getComputedStyle(element);
+        const { length } = CSSStyleDeclarationComputed;
+        let key;
+        let value;
+        const computedStyleStr = "";
 
-    [].forEach.call(crowbarElements, function (el) {
-        el.parentNode.removeChild(el);
-    });
-}
-
-function _getFontName(fontWeight) {
-    var fontName = "NYTFranklin";
-    if (fontWeight === 300 || fontWeight.toLowerCase() === "light") {
-        return fontName + " Light";
-    }
-    if (fontWeight > 400 || fontWeight.toLowerCase() === "bold") {
-        return fontName + " Bold";
-    }
-    return fontName + " Medium";
-}
-
-function _setInlineStyles(svg, emptySvgDeclarationComputed) {
-    function _explicitlySetStyle(element) {
-        var cSSStyleDeclarationComputed = getComputedStyle(element);
-        var i,
-            len,
-            key,
-            value;
-        var computedStyleStr = "";
-        for (i = 0, len = cSSStyleDeclarationComputed.length; i < len; i += 1) {
-            key = cSSStyleDeclarationComputed[i];
-            value = cSSStyleDeclarationComputed.getPropertyValue(key);
+        for (let i = 0; i < length; i += 1) {
+            key = CSSStyleDeclarationComputed[i];
+            value = CSSStyleDeclarationComputed.getPropertyValue(key);
             if (value !== emptySvgDeclarationComputed.getPropertyValue(key) && key !== "font-family") {
                 computedStyleStr += key + ":" + value + ";";
             }
         }
         if (element.tagName === "text" || element.tagName === "tspan") {
-            computedStyleStr += "font-size:" + cSSStyleDeclarationComputed.fontSize + ";";
-            var fw = cSSStyleDeclarationComputed.fontWeight,
-                ff = _getFontName(fw);
-            computedStyleStr += "font-family:" + ff + ";";
+            computedStyleStr += "font-size:" + CSSStyleDeclarationComputed.fontSize + ";";
+            const fontWeight = CSSStyleDeclarationComputed.fontWeight;
+            const fontFamily = getFontFamily(fontWeight);
+
+            computedStyleStr += "font-family:" + fontFamily + ";";
         }
         element.setAttribute("style", computedStyleStr);
-    }
+    };
 
-    function _traverse(obj) {
-        var tree = [];
-        tree.push(obj);
-
-        function visit(node) {
-            if (node && node.hasChildNodes()) {
-                var child = node.firstChild;
-                while (child) {
-                    if (child.nodeType === 1 && child.nodeName !== "SCRIPT") {
-                        tree.push(child);
-                        visit(child);
-                    }
-                    child = child.nextSibling;
-                }
-            }
-        }
-
-        visit(obj);
-        return tree;
-    }
     // hardcode computed css styles inside svg
-    var allElements = _traverse(svg);
-    var i = allElements.length;
-    while (i) {
-        _explicitlySetStyle(allElements[i]);
-        i -= 1;
-    }
-}
+    traverseNodes(svg).forEach(e => _explicitlySetStyle(e));
+};
 
-function _getSources(doc, emptySvgDeclarationComputed) {
-    var svgInfo = [],
+const _getSources = (doc, emptySvgDeclarationComputed) => {
+    const svgInfo = [],
         svgs = doc.querySelectorAll("svg");
 
-    [].forEach.call(svgs, function (svg) {
+    [].forEach.call(svgs, (svg) => {
         svg.setAttribute("version", "1.1");
 
         // removing attributes so they aren't doubled up
@@ -106,8 +64,9 @@ function _getSources(doc, emptySvgDeclarationComputed) {
 
         _setInlineStyles(svg, emptySvgDeclarationComputed);
 
-        var source = (new XMLSerializer()).serializeToString(svg);
-        var rect = svg.getBoundingClientRect();
+        const source = (new XMLSerializer()).serializeToString(svg);
+        const rect = svg.getBoundingClientRect();
+
         svgInfo.push({
             top: rect.top,
             left: rect.left,
@@ -120,25 +79,25 @@ function _getSources(doc, emptySvgDeclarationComputed) {
         });
     });
     return svgInfo;
-}
+};
 
-function download(source) {
+export const download = (sourceSvg, filename = "untitled") => {
     console.log("Using Download SVG");
-    var filename = "untitled";
 
-    if (source.id) {
-        filename = source.id;
-    } else if (source.class) {
-        filename = source.class;
-    } else if (window.document.title) {
-        filename = window.document.title.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+    if (filename === "untitled") {
+        if (sourceSvg.id) {
+            filename = sourceSvg.id;
+        } else if (sourceSvg.class) {
+            filename = sourceSvg.class;
+        } else if (window.document.title) {
+            filename = window.document.title.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+        }
     }
 
-    var url = window.URL.createObjectURL(new Blob(source.source, {
-        type: "text/xml"
-    }));
+    const url = window.URL.createObjectURL(new Blob(sourceSvg.source, { type: "text/xml" }));
 
-    var a = document.createElement("a");
+    const a = document.createElement("a");
+
     body.appendChild(a);
     a.setAttribute("class", "svg-crowbar");
     a.setAttribute("download", filename + ".svg");
@@ -146,68 +105,69 @@ function download(source) {
     a.style.display = "none";
     a.click();
 
-    setTimeout(function () {
-        window.URL.revokeObjectURL(url);
-    }, 10);
-}
+    setTimeout(() => window.URL.revokeObjectURL(url), 10);
+};
 
-function downloadPNG(source) {
+export const downloadPNG = (sourceSvg, filename = "untitled") => {
     console.log("Using Download PNG");
-    var filename = "untitled";
 
-    if (source.id) {
-        filename = source.id;
-    } else if (source.class) {
-        filename = source.class;
-    } else if (window.document.title) {
-        filename = window.document.title.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+    if (filename === "untitled") {
+        if (sourceSvg.id) {
+            filename = sourceSvg.id;
+        } else if (sourceSvg.class) {
+            filename = sourceSvg.class;
+        } else if (window.document.title) {
+            filename = window.document.title.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+        }
     }
 
-    var canvas = document.createElement("canvas");
+    const canvas = document.createElement("canvas");
+
     body.appendChild(canvas);
     canvas.setAttribute("id", "svg-image");
-    canvas.setAttribute("width", source.width);
-    canvas.setAttribute("height", source.height);
+    canvas.setAttribute("width", sourceSvg.width);
+    canvas.setAttribute("height", sourceSvg.height);
     canvas.style.display = "none";
 
-    var canvasSvgImage = document.querySelector("canvas#svg-image"),
-        context = canvasSvgImage.getContext("2d");
-    var imgsrc = "data:image/svg+xml;base64," + btoa(source.source);
+    const canvasSvgImage = document.querySelector("canvas#svg-image");
+    const context = canvasSvgImage.getContext("2d");
+    const imgsrc = "data:image/svg+xml;base64," + btoa(sourceSvg.source);
+    const image = new Image();
 
-    var image = new Image();
     image.src = imgsrc;
-    image.onload = function () {
+    image.onload = () => {
         context.drawImage(image, 0, 0);
-        var canvasdata = canvas.toDataURL("image/png");
-        // var canvasdata = canvas.toDataURL("image/svg+xml;base64");
+        const canvasdata = canvas.toDataURL("image/png");
 
-        var pngimg = '<img src="' + canvasdata + '" width="' + source.width + '" height="' + source.height + '">';
+        const pngimg = '<img src="' + canvasdata + '" width="' + sourceSvg.width + '" height="' + sourceSvg.height + '">';
+
         d3.select("#pngdataurl").html(pngimg);
 
-        var a = document.createElement("a");
+        const a = document.createElement("a");
+
         a.download = filename + ".png";
-        // a.download = "sample.svg";
         a.href = canvasdata;
         document.body.appendChild(a);
         a.click();
     };
-}
+};
 
-function createPopover(sources) {
+export const createPopover = (sources) => {
     _cleanup();
 
-    sources.forEach(function (s1) {
-        sources.forEach(function (s2) {
-            if (s1 !== s2) {
-                if ((Math.abs(s1.top - s2.top) < 38) && (Math.abs(s1.left - s2.left) < 38)) {
-                    s2.top += 38;
-                    s2.left += 38;
+    sources.forEach((sourceA) => {
+        sources.forEach((sourceB) => {
+            if (sourceA !== sourceB) {
+                if ((Math.abs(sourceA.top - sourceB.top) < 38) && (Math.abs(sourceA.left - sourceB.left) < 38)) {
+                    sourceB.top += 38;
+                    sourceB.left += 38;
                 }
             }
         });
     });
 
-    var buttonsContainer = document.createElement("div");
+    const buttonsContainer = document.createElement("div");
+
     body.appendChild(buttonsContainer);
 
     buttonsContainer.setAttribute("class", "svg-crowbar");
@@ -216,7 +176,8 @@ function createPopover(sources) {
     buttonsContainer.style.top = 0;
     buttonsContainer.style.left = 0;
 
-    var background = document.createElement("div");
+    const background = document.createElement("div");
+
     body.appendChild(background);
 
     background.setAttribute("class", "svg-crowbar");
@@ -227,8 +188,9 @@ function createPopover(sources) {
     background.style.width = "100%";
     background.style.height = "100%";
 
-    sources.forEach(function (d, i) {
-        var buttonWrapper = document.createElement("div");
+    sources.forEach((d, i) => {
+        const buttonWrapper = document.createElement("div");
+
         buttonsContainer.appendChild(buttonWrapper);
         buttonWrapper.setAttribute("class", "svg-crowbar");
         buttonWrapper.style.position = "absolute";
@@ -244,7 +206,8 @@ function createPopover(sources) {
         buttonWrapper.style.cursor = "move";
         buttonWrapper.textContent = "SVG #" + i + ": " + (d.id ? "#" + d.id : "") + (d.class ? "." + d.class : "");
 
-        var button = document.createElement("button");
+        const button = document.createElement("button");
+
         buttonWrapper.appendChild(button);
         button.setAttribute("data-source-id", i);
         button.style.width = "150px";
@@ -253,7 +216,8 @@ function createPopover(sources) {
         button.style.margin = "5px 0 0 0";
         button.textContent = "Download SVG";
 
-        var buttonPNG = document.createElement("button");
+        const buttonPNG = document.createElement("button");
+
         buttonWrapper.appendChild(buttonPNG);
         buttonPNG.setAttribute("data-source-id", i);
         buttonPNG.style.width = "150px";
@@ -262,51 +226,34 @@ function createPopover(sources) {
         buttonPNG.style.margin = "5px 0 0 0";
         buttonPNG.textContent = "Download PNG";
 
-        button.onclick = function (el) {
+        button.onclick = (el) => {
             download(d);
         };
 
-        buttonPNG.onclick = function (el) {
+        buttonPNG.onclick = (el) => {
             downloadPNG(d);
         };
     });
-}
+};
 
-function initialize() {
-    var documents = [window.document],
-        SVGSources = [],
-        iframes = document.querySelectorAll("iframe"),
-        objects = document.querySelectorAll("object");
-
+export const initialize = () => {
+    const documents = [window.document];
+    const SVGSources = [];
+    const iframes = document.querySelectorAll("iframe");
+    const objects = document.querySelectorAll("object");
     // add empty svg element
-    var emptySvgElement = window.document.createElementNS(prefix.svg, "svg");
+    const emptySvgElement = window.document.createElementNS(prefix.svg, "svg");
+
     window.document.body.appendChild(emptySvgElement);
-    var emptySvgDeclarationComputed = getComputedStyle(emptySvgElement);
+    const emptySvgDeclarationComputed = getComputedStyle(emptySvgElement);
 
-    [].forEach.call(iframes, function (el) {
-        try {
-            if (el.contentDocument) {
-                documents.push(el.contentDocument);
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    });
+    documents = [ ...documents, ...getContentDocuments(iframes), ...getContentDocuments(objects) ];
 
-    [].forEach.call(objects, function (el) {
-        try {
-            if (el.contentDocument) {
-                documents.push(el.contentDocument);
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    });
-
-    documents.forEach(function (doc) {
-        var newSources = _getSources(doc, emptySvgDeclarationComputed);
+    documents.forEach((doc) => {
+        const newSources = _getSources(doc, emptySvgDeclarationComputed);
         // because of prototype on NYT pages
-        for (var i = 0; i < newSources.length; i += 1) {
+
+        for (const i = 0; i < newSources.length; i += 1) {
             SVGSources.push(newSources[i]);
         }
     });
@@ -317,9 +264,4 @@ function initialize() {
     } else {
         alert("The Crowbar couldn’t find any SVG nodes.");
     }
-}
-
-exports.initialize = initialize;
-exports.download = download;
-exports.downloadPNG = downloadPNG;
-exports.createPopover = createPopover;
+};
