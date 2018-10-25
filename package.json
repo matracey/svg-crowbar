@@ -2,7 +2,7 @@
     "name": "svg-crowbar",
     "version": "1.0.2",
     "description": "Extracts an SVG node and accompanying styles from an HTML document and allows you to download it all as an SVG file. https://nytimes.github.io/svg-crowbar/ ",
-    "main": "lib/index.js",
+    "main": "lib/svg-crowbar.js",
     "scripts": {
         "build": "webpack --env dev && webpack --env build && npm run test",
         "dev": "webpack --progress --colors --watch --env dev",
