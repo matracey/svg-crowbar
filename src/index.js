@@ -1,15 +1,12 @@
-/* eslint-disable no-var, one-var, vars-on-top, prefer-arrow-callback, func-names, prefer-destructuring, no-console, no-alert, prefer-template */
-
 import d3 from "d3";
 
 var doctype = '<?xml version="1.0" standalone="no"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">';
 
 window.URL = (window.URL || window.webkitURL);
 
-var body = document.body,
-    emptySvg;
+const { body } = document;
 
-var prefix = {
+const prefix = {
     xmlns: "http://www.w3.org/2000/xmlns/",
     xlink: "http://www.w3.org/1999/xlink",
     svg: "http://www.w3.org/2000/svg"
