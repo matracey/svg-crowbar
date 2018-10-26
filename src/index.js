@@ -122,19 +122,28 @@ export const downloadPNG = (sourceSvg, filename = "untitled") => {
     }
 
     const canvas = document.createElement("canvas");
+    let width = typeof sourceSvg.width === "number" ? sourceSvg.width : null;
+    let height = typeof sourceSvg.height === "number" ? sourceSvg.height : null;
+
+    if (!width || !height) {
+        const bBox = sourceSvg.getBBox();
+
+        width = bBox.width;
+        height = bBox.height;
+    }
 
     body.appendChild(canvas);
     canvas.setAttribute("id", "svg-image");
-    canvas.setAttribute("width", sourceSvg.width);
-    canvas.setAttribute("height", sourceSvg.height);
+    canvas.setAttribute("width", width);
+    canvas.setAttribute("height", height);
     canvas.style.display = "none";
 
     const canvasSvgImage = document.querySelector("canvas#svg-image");
     const context = canvasSvgImage.getContext("2d");
-    const imgsrc = "data:image/svg+xml;base64," + btoa(sourceSvg.source);
-    const image = new Image();
+    const imgsrc = "data:image/svg+xml;base64," + btoa(sourceSvg.source || sourceSvg.outerHTML);
+    const image = document.createElement("img");
 
-    image.src = imgsrc;
+    // This isn't getting called.
     image.onload = () => {
         context.drawImage(image, 0, 0);
         const canvasdata = canvas.toDataURL("image/png");
@@ -150,6 +159,7 @@ export const downloadPNG = (sourceSvg, filename = "untitled") => {
         document.body.appendChild(a);
         a.click();
     };
+    image.src = imgsrc;
 };
 
 export const createPopover = (sources) => {
